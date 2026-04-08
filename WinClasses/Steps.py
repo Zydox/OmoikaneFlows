@@ -83,7 +83,8 @@ class Steps:
 		self.cls_omoikanev3 = WinClasses.OmoikaneV3.OmoikaneV3 (self)
 		self.cls_omoikane = WinClasses.Omoikane.Omoikane (self)
 #		self.cls_example = self.internal_import ('Example', 'Example')
-		self.fernet = Fernet (self.cls_flows.fernet_key)
+		if len (self.cls_flows.fernet_key) > 0:
+			self.fernet = Fernet (self.cls_flows.fernet_key)
 		self.version_core = self.cls_flows.version_core
 		self.online_steps = {}
 		
@@ -91,6 +92,8 @@ class Steps:
 	def start (self, **opts):
 		steps = []
 		external = {}
+		if 'FernetKey' in opts:
+			self.cls_flows.fernet_key = opts['FernetKey']
 		if 'Debug.File' in opts and isinstance (opts['Debug.File'], str) and 'OmoikaneFlows' in opts['Debug.File']:
 			self.debug['Active'] = True
 			if 'Debug.File.Instant' in opts and opts['Debug.File.Instant'] is True:

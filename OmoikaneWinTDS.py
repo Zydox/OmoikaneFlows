@@ -80,7 +80,8 @@ class OmoikaneFlows:
 		self.cls_flows = Classes.Flows.Flows ()
 		self.cls_web = WinClasses.Web.Web (None)
 		self.cls_steps = WinClasses.Steps.Steps ()
-		self.fernet = Fernet (self.cls_flows.fernet_key)
+		if len (self.cls_flows.fernet_key) > 0:
+			self.fernet = Fernet (self.cls_flows.fernet_key)
 		self.init_generations ()
 	
 	
@@ -134,6 +135,8 @@ if len (sys.argv) > 1:
 		elif argv == '--License':
 			opts['Online'] = False
 			opts['License'] = True
+		elif argv.startswith ('--FernetKey='):
+			opts['FernetKey'] = argv[argv.find ('=') + 1:]
 		
 		
 		elif argv.startswith ('--Help'):
@@ -149,6 +152,7 @@ if len (sys.argv) > 1:
 			print ('--Version              Displays the current version')
 			print ('--License              Displays the license')
 			print ('--Help                 Displays this help')
+			print ('--FernetKey=<KEY>      Specifies which Fernet key to use')
 
 
 cls_of = OmoikaneFlows ()
