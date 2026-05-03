@@ -462,9 +462,7 @@ def zyd_download (**opts:any) -> tuple[bool, any]:
 	try:
 		if method == 'powershell':
 			tempfile = '\\\\192.168.1.15/Shared_Temp/' + str (uuid.uuid4 ())
-			process = subprocess.Popen (["powershell.exe", "-Command", "(Invoke-WebRequest -Uri '" + url + "' -OutFile '" + tempfile + "').Content"], stdout=subprocess.PIPE)
-			out, err = process.communicate ()
-			print ('OK')
+			subprocess.run (["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", f"Invoke-WebRequest -Uri '{opts['URL']}' -OutFile '{tempfile}' -MaximumRedirection 10"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 			with open (tempfile, ('rb' if binary == True else 'r')) as File:
 				data = File.read ()
 			os.remove (tempfile)

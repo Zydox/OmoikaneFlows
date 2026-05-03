@@ -10,6 +10,7 @@ import bz2
 import calendar
 import certifi
 import copy
+import colorsys
 import csv
 import customtkinter
 import datetime

@@ -30,6 +30,7 @@ class GUI:
 	default_fields = {
 		'Button':['fg_color', 'bg_color', 'border_color'],
 		'Entry':['fg_color', 'bg_color', 'border_color'],
+		'TextBox':['fg_color', 'bg_color', 'border_color'],
 		'Label':['fg_color', 'bg_color'],
 		'CheckBox':['fg_color', 'bg_color'],
 		'ComboBox':['fg_color', 'bg_color'],
@@ -520,9 +521,14 @@ class GUI:
 		textbox.bind ('<KeyRelease>', lambda event: self.internal_textbox_event (isolation, opts['ID']), add='+')
 		textbox.bind ('<Tab>', lambda event: self.internal_textbox_event (isolation, opts['ID']), add='+')
 		textbox.bind ('<Leave>', lambda event: self.internal_textbox_event (isolation, opts['ID']), add='+')
+		if 'Value' in opts:
+			if isinstance (opts['Value'], str):
+				textbox.insert ("0.0", opts['Value'])
+			else:
+				return False, {'Status':'WARNING', 'Title':'GUI:step_textbox_add: Aborted', 'Message':'Value has to be a string (not "' + str (type (opts['Value'])) + '").'}
 		
 		defaults = {}
-		for field in self.default_fields['Entry']:
+		for field in self.default_fields['TextBox']:
 			defaults[field] = textbox.cget (field)
 		self.objects['TextBox'][opts['ID']] = {'Object': textbox, 'Value':(opts['Value'] if 'Value' in opts else ''), 'Defaults':defaults, 'Form':self.internal_form ('Form', **opts)}
 		

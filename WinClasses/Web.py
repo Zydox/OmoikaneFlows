@@ -108,13 +108,7 @@ class Web:
 		elif opts['Method'] == 'PUT':
 			result = requests.put (opts['URL'], **request_opts)
 		elif opts['Method'] == 'Windows.Powershell':
-			temp_file = (opts['Powershell.TempFile'] if 'Powershell.TempFile' in opts else os.path.join (tempfile.gettempdir (), 'OmoikaneFlows.' + internal_zyd_uniqueid () + '.tmp'))
-			process = subprocess.Popen (["powershell.exe", "-Command", "(Invoke-WebRequest -Uri '" + opts['URL'] + "' -OutFile '" + temp_file + "' -MaximumRedirection 10).Content"], stdout=subprocess.PIPE)
-			out, err = process.communicate ()
-			with open (temp_file, 'rb') as file:
-				value = file.read ()
-			os.remove (temp_file)
-			status = True
+			status, value = zyd_download (Method='Powershell', URL=opts['URL'], Binary=(True if 'Powershell.Binary' in opts and opts['Powershell.Binary'] is True else False))
 			if ('Powershell.Binary' not in opts or opts['Powershell.Binary'] is not True) and ('Decrypt' not in opts or opts['Decrypt'] is False):
 				value = value.decode ('UTF-8')
 		

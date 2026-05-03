@@ -215,6 +215,14 @@ class Logic:
 		elif 'Data.List' in opts and isinstance (opts['Data.List'], list):
 			entries = opts['Data.List']
 			logic = 'LIST'
+		elif 'Range.List' in opts and isinstance (opts['Range.List'], list) and len (opts['Range.List']) >= 2 and len (opts['Range.List']) <= 3:
+			for x in opts['Range.List']:
+				if not isinstance (x, int):
+					return False, {'Status':'WARNING', 'Title':'LOGIC:step_loop: Aborted', 'Message':'"Range.List" contains values which are not integers ("' + str (x) + '" has the type "' + str (type (x)) + '")."'}
+			entries = []
+			for x in range (opts['Range.List'][0], opts['Range.List'][1], (opts['Range.List'][2] if len (opts['Range.List']) == 3 else 1)):
+				entries.append (x)
+			logic = 'LIST'
 		else:
 			return False, {'Status':'WARNING', 'Title':'LOGIC:step_loop: Aborted', 'Message':'No valid source data found.'}
 		

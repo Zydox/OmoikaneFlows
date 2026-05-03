@@ -87,7 +87,7 @@ class Omoikane:
 		json = {'Products':opts['Products']}
 		if 'Products.AddToDB' in opts and opts['Products.AddToDB'] is True:
 			json['AddToDB'] = True
-		result = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/', **{'Method':'POST', 'Data.JSON':json, 'JSON':True})
+		result = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/APIs/Dakimakura/ProductsNew', **{'Method':'POST', 'Data.JSON':json, 'JSON':True})
 		if isinstance (result, dict) and 'Status' in result and result['Status'] == 'OK' and 'Data' in result:
 			print ('OMOIKANE:step_dakimakura_products_new::OK::' + str (result['Data']))
 		
@@ -95,7 +95,7 @@ class Omoikane:
 	
 	
 	def step_dakimakura_download_requests (self, isolation, **opts):
-		result = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/', **{'Method':'GET', 'JSON':True})
+		result = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/APIs/Dakimakura/DownloadRequests', **{'Method':'GET', 'JSON':True})
 		uploads = 0
 		if isinstance (result, dict) and 'Status' in result and result['Status'] == 'OK' and 'Data' in result and isinstance (result['Data'], list) and len (result['Data']) > 0:
 			if 'Download' in opts and opts['Download'] is True and 'Download.TempFile' in opts:
@@ -103,7 +103,7 @@ class Omoikane:
 #					print ('\n\tDOWNLOAD=' + str (entry))
 					result_download = self.cls_steps.cls_web.internal_web (entry[2], **{'Method':'Windows.Powershell', 'Powershell.Binary':True, 'Powershell.TempFile':opts['Download.TempFile']})
 					if isinstance (result_download, bytes):
-						result_upload = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/', **{'JSON':True, 'Files':{
+						result_upload = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/APIs/Dakimakura/DownloadRequestCompleted', **{'JSON':True, 'Files':{
 								'File':('Page.html', io.BytesIO (result_download), 'text/html'),
 								'Post.JSON':('', io.BytesIO (zyd_json ({'Type':entry[0], 'ID':entry[1]}, Internal=True, Encode=True).encode ('utf-8')), 'application/json'),
 							}})
@@ -124,7 +124,7 @@ class Omoikane:
 		if 'ProductImages' not in opts or not isinstance (opts['ProductImages'], list):
 			return False, {'Status':'WARNING', 'Title':'OMOIKANE:step_dakimakura_product_images: Aborted', 'Message':'No ProductImages list provided.'}
 		if len (opts['ProductImages']) > 0:
-			result = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/', **{'Method':'GET', 'Data.JSON':{'ID':opts['PageID'], 'URLs':opts['ProductImages']}, 'JSON':True})
+			result = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/APIs/Dakimakura/ProcessPage', **{'Method':'GET', 'Data.JSON':{'ID':opts['PageID'], 'URLs':opts['ProductImages']}, 'JSON':True})
 			print (result)
 			
 		return True, {'Status':'OK', 'Data':None}
@@ -136,7 +136,7 @@ class Omoikane:
 			'Page':opts['Page'],
 			'Updated':(True if 'Updated' in opts and opts['Updated'] is True else False),
 		}
-		result = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/APIs/MovieArchive/DownloadSource' + ('?TDS=1' if self.cls_steps.tds is True else ''), **{'Method':'GET', 'Encrypt':True, 'Decrypt':True, 'Content':True, 'Data.JSON':page_opts})
+		result = self.cls_steps.cls_web.internal_web ('https://www.omoikane.se/APIs/MovieArchive/DownloadSource', **{'Method':'GET', 'Encrypt':True, 'Decrypt':True, 'Content':True, 'Data.JSON':page_opts})
 		if 'ReturnVariable' in opts and isinstance (opts['ReturnVariable'], str):
 			self.cls_steps.internal_value_set_value (isolation, 'Variable', result, opts['ReturnVariable'])
 		if 'ReturnVariable.Global' in opts and isinstance (opts['ReturnVariable.Global'], str):

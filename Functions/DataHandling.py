@@ -155,7 +155,8 @@ def datahandling_convert (value, **opts) -> tuple[bool, any]:
 				return zyd_return ((zyd_json (value, Encode=True)), **opts)
 			return zyd_return (True, str (value), **opts)
 		elif opts['Type'] == 'JSON':
-			return zyd_return ((zyd_json (value, Decode=True)), **opts)
+			status, result = zyd_json (value, Decode=True)
+			return zyd_return (status, result, **opts)
 		elif opts['Type'] == 'Boolean':
 			return zyd_return (True, (False if value is None or value is False or str (value) == '0' or len (str (value)) == 0 else True))
 		elif opts['Type'] == 'Array':

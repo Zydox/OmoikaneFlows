@@ -102,7 +102,10 @@ class Data:
 			return status, result
 		elif status is False and 'OnFalse' in opts:
 			self.cls_steps.execute_steps (opts['OnFalse'], isolation)
-		return True, {'Status':'OK'}
+		if 'Debug' in opts and opts['Debug'] is True:
+			return True, {'Status':'OK', 'Debug':{'Input':opts['Value'], 'Value':value, 'Verify.Status':status, 'Verify.Result':result}}
+		else:
+			return True, {'Status':'OK'}
 	
 	
 	def step_file_read (self, isolation, **opts):
@@ -309,8 +312,10 @@ class Data:
 			self.cls_steps.internal_value_set_value (None, 'Variable', value, opts['ReturnVariable.Global'])
 		if 'UpdateGUI.Value' in opts and isinstance (opts['UpdateGUI.Value'], str):
 			self.cls_steps.cls_gui.internal_object_update (isolation, opts['UpdateGUI.Value'], Value=value, Trigger=(True if 'UpdateGUI.Value.Trigger' in opts and opts ['UpdateGUI.Value.Trigger'] is True else False))
-
-		return True, {'Status':'OK', 'Data':value}
+		if 'Debug' in opts and opts['Debug'] is True:
+			return True, {'Status':'OK', 'Data':value, 'Debug':{'Input':opts['Calculation'], 'Calc':calc, 'Opts':opts}}
+		else:
+			return True, {'Status':'OK', 'Data':value}
 	
 	
 	def step_variable_set (self, isolation, **opts):
@@ -401,6 +406,11 @@ class Data:
 			
 			if opts['Logic'] == 'List.Add':
 				variable.append (opts['Value'])
+			elif opts['Logic'] == 'List.RemoveKey':
+				if isinstance (opts['Value'], int) and opts['Value'] >= 0 and opts['Value'] < len (variable):
+					removed_value = variable.pop (opts['Value'])
+				else:
+					return False, {'Status':'WARNING', 'Title':'DATA:step_variable_change: Aborted', 'Message':'The Logic "List.RemoveKey" with the Value "' + str (opts['Value']) + '" (type: ' + str (type (opts['Value'])) + ') was not found in the value list with ' + str (len (variable)) + ' keys.'}
 			elif opts['Logic'] == 'Numeric.Add':
 				variable += opts['Value']
 			elif opts['Logic'] == 'Numeric.Remove':
@@ -411,6 +421,11 @@ class Data:
 			self.cls_steps.internal_value_set_value (func_isolation, 'Variable', variable, func_variable)
 			if 'UpdateGUI.Value' in opts and isinstance (opts['UpdateGUI.Value'], str):
 				self.cls_steps.cls_gui.internal_object_update (isolation, opts['UpdateGUI.Value'], Value=variable, Trigger=(True if 'UpdateGUI.Value.Trigger' in opts and opts ['UpdateGUI.Value.Trigger'] is True else False))
+			if 'Remove' in opts['Logic']:
+				if 'ReturnVariable.Removed' in opts and isinstance (opts['ReturnVariable.Removed'], str):
+					self.cls_steps.internal_value_set_value (isolation, 'Variable', removed_value, opts['ReturnVariable.Removed'])
+				if 'ReturnVariable.Removed.Global' in opts and isinstance (opts['ReturnVariable.Removed.Global'], str):
+					self.cls_steps.internal_value_set_value (None, 'Variable', removed_value, opts['ReturnVariable.Removed.Global'])
 		return True, {'Status':'OK'}
 
 	
@@ -597,6 +612,16 @@ class Data:
 						for key in opts['ArrayDiff'].keys ():
 							if key not in opts['Value'] or opts['ArrayDiff'][key] != opts['Value'][key]:
 								value[key] = opts['ArrayDiff'][key]
+		elif opts['Logic'] == 'ArrayKeyValue' and 'ArrayKey' in opts and isinstance (opts['ArrayKey'], (str, int, float)):
+			if isinstance (opts['Value'], list) and isinstance (opts['ArrayKey'], int):
+				if opts['ArrayKey'] < len (opts['Value']) and opts['ArrayKey'] >= 0:
+					value = copy.deepcopy (opts['Value'][opts['ArrayKey']])
+				else:
+					return False, {'Status':'WARNING', 'Title':'DATA:step_transform: Aborted', 'Message':'The logic "ArrayKeyValue" with the ArrayKey "' + str (opts['ArrayKey']) + '" was not found in the value list with ' + str (len (opts['Value'])) + ' keys.'}
+			elif isinstance (opts['Value'], dict) and opts['ArrayKey'] in opts['Value']:
+				value = copy.deepcopy (opts['Value'][opts['ArrayKey']])
+			else:
+				return False, {'Status':'WARNING', 'Title':'DATA:step_transform: Aborted', 'Message':'The logic "ArrayKeyValue" with the ArrayKey "' + str (opts['ArrayKey']) + '" was not found in the value dict with following keys:\n' + str (opts['Value'].keys ()) + '.'}
 		else:
 			return False, {'Status':'WARNING', 'Title':'DATA:step_transform: Aborted', 'Message':'The logic "' + str (opts['Logic']) + '" is not supported.'}
 		

@@ -205,11 +205,11 @@ class Flows:
 	}
 	version_core = 9
 	version_build = {
-		'Core':8,
-		'Functions':122,
-		'Versions':188,
-		'InternalFunctions':19,
-		'InternalVersions':34
+		'Core':9,
+		'Functions':137,
+		'Versions':266,
+		'InternalFunctions':23,
+		'InternalVersions':41
 	}
 	versions = {
 		'Common:internal_zyd_uniqueid':1,
@@ -223,6 +223,7 @@ class Flows:
 		'Common:internal_zyd_stacktrace':1,
 		'Common:internal_zyd_shorten':1,
 		'Common:internal_zyd_session_key':1,
+		'Common:zyd_download':1,
 		'Common:zyd_json':3,
 		'Common:zyd_passwords':1,
 		'Common:zyd_db_query':2,
@@ -230,7 +231,7 @@ class Flows:
 		'Common:zyd_return':1,
 		'Common:zyd_calc':2,
 		'DataHandling:datahandling_convert':7,
-		'DataHandling:datahandling_verify':7,
+		'DataHandling:datahandling_verify':8,
 		'DataHandling:datahandling_verify_entry':1,
 		'DataHandling:internal_datahandling_verify':1,
 		'DataHandling:internal_datahandling_convert_array_convert':1,
@@ -909,7 +910,7 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 			},
 		},
 		'DATA:Verify':{
-			'Version':2,
+			'Version':3,
 			'Title':'Verify if the input value matches the provided check rules',
 			'Input':{
 				'Value':{'Type':{'Type':'Any'}, 'Mandatory':'SINGLE'},
@@ -919,6 +920,7 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 				'OnFalse':{'Type':{'Type':'List'}, 'Steps':True},
 				'ReturnVariable':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Mandatory':'*', 'Example':'TEMP_VALUE', 'Help':'Stores the result into the variable name provided.'},
 				'ReturnVariable.Global':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Mandatory':'*', 'Example':'TEMP_VALUE', 'Help':'Stores the result into the global variable name provided.'},
+				'Debug':{'Type':{'Type':'Boolean'}, 'Example':True, 'Help':"If True, returns a debug segment in the return result."},
 			},
 		},
 		'DATA:Convert':{
@@ -951,7 +953,7 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 			},
 		},
 		'DATA:Transform':{
-			'Version':7,
+			'Version':8,
 			'Title':'Used to transform data into something new based on fixed logics',
 			'Input':{
 				'Value':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Mandatory':'*'},
@@ -967,7 +969,8 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 * Dict.ModifyKey - Modifies the entries in a dict using Modify.Prefix, Modify.Suffix and Modify.Replace.
 * ArrayDiff - Returns a dict or list with all the entries which wasn\'t matched with ArrayDiff.
 * ArrayDiff.Matched - Returns a dict or list with the matched entries between Value and ArrayDiff.
-* ArrayDiff.Mismatched - Returns a dict or list with the differences between two arrays."""},
+* ArrayDiff.Mismatched - Returns a dict or list with the differences between two arrays.
+* ArrayKeyValue - Returns the value from an array key for the ArrayKey key."""},
 				'Regex':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':1024}, 'Example':'[a-zA-Z]*', 'Help':'A regex string used by the Regex logics.'},
 				'Regex.List':{'Type':{'Type':'List'}, 'Example':['[a-zA-Z]*', '[0-9]*'], 'Help':'A list of regex strings used by the Regex logics.'},
 				'ArrayDiff':{'Type':{'Type':['List', 'Dict']}, 'Example':['[a-zA-Z]*', '[0-9]*'], 'Help':'A list of regex strings used by the Regex logics.'},
@@ -980,6 +983,7 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 * ReturnVariable.Global - Global return variable to store the value in.
 * UpdateGUI.Value - GUI element to update.
 * UpdateGUI.Value.Trigger - True will request to trigger the value change logic."""},
+				'ArrayKey':{'Type':{'Type':['String', 'Numeric']}, 'Example':0, 'Help':'The array key used by the logic ArrayKeyValue.'},
 				'ReturnVariable':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}},
 				'ReturnVariable.Global':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}},
 				'UpdateGUI.Value':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'Entry##TEMP', 'Help':'Updates the GUI Entry instance TEMP with the input value.'},
@@ -1017,7 +1021,7 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 			},
 		},
 		'DATA:Calculate':{
-			'Version':4,
+			'Version':5,
 			'Title':'Used to calculate a string of logic',
 			'Description':'',
 			'Input':{
@@ -1031,6 +1035,7 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 				'ReturnVariable.Global':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}},
 				'UpdateGUI.Value':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'Entry##TEMP', 'Help':'Updates the GUI Entry instance TEMP with the input value.'},
 				'UpdateGUI.Value.Trigger':{'Type':{'Type':'Boolean'}, 'Default':False, 'Example':True, 'Help':'Controls if the OnChange logic should be triggered for the Value changes.'},
+				'Debug':{'Type':{'Type':'Boolean'}, 'Example':True, 'Help':"If True, returns a debug segment in the return result."},
 			},
 		},
 		'DATA:Variable.Set':{
@@ -1051,8 +1056,8 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 			},
 		},
 		'DATA:Variable.Change':{
-			'Version':2,
-			'Title':'Changes as variable.',
+			'Version':3,
+			'Title':'Changes a variable.',
 			'Description':'',
 			'Input':{
 				'Value':{'Type':{'Type':'Any'}, 'Mandatory':'VALUE', 'Example':[1, 2, 3], 'Help':'The value to be used for the change.'},
@@ -1060,10 +1065,13 @@ ListDict - Returns the result as a list of dicts (headers as dict keys)"""},
 				'Variable.Global':{'Type':{'Type':'String'}, 'Example':'TempVar', 'Help':'The global variable to change.'},
 				'Logic':{'Type':{'Type':'Enum', 'Values':['List.Append', 'Numeric.Add', 'Numeric.Remove']}, 'Mandatory':'*', 'Example':'List.Append', 'Help':"""Specifies which logic that should be used for changing the variable:
 * List.Add - Adds the value to a variable list.
+* List.RemoveKey - Remove the list key Value from the list (Value needs to be an Integer).
 * Numeric.Add - Adds the value to the variable.
 * Numeric.Remove - Subtracts the value from the variable."""},
 				'UpdateGUI.Value':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'Entry##TEMP', 'Help':'Updates the GUI Entry instance TEMP with the new value.'},
 				'UpdateGUI.Value.Trigger':{'Type':{'Type':'Boolean'}, 'Default':False, 'Example':True, 'Help':'Controls if the OnChange logic should be triggered for the value changes.'},
+				'ReturnVariable.Removed':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'TEMP_VALUE', 'Help':'If an array removal logic was used, stores the removed result into the variable name provided.'},
+				'ReturnVariable.Removed.Global':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'TEMP_VALUE', 'Help':'If an array removal logic was used, stores the removed  result into the global variable name provided.'},
 			},
 		},
 		'DATA:File.Read':{
@@ -1504,7 +1512,7 @@ An input with the keys ID and Name can then be used in the Steps where %%ID%% an
 			},
 		},
 		'LOGIC:Loop':{
-			'Version':3,
+			'Version':4,
 			'Title':'Loops though data and executes steps',
 			'Input':{
 				'Data.ListList':{'Type':{'Type':'List'}},
@@ -1512,14 +1520,14 @@ An input with the keys ID and Name can then be used in the Steps where %%ID%% an
 				'Data.ListDict':{'Type':{'Type':'List'}},
 				'Data.DictDict':{'Type':{'Type':'Dict'}},
 				'Data.List':{'Type':{'Type':'List'}},
+				'Range.List':{'Type':{'Type':'List'}, 'Example':[1, 7, 2], 'Help':'A list with the Start, Stop and optional Stepping value, a list of 1, 7, 2 returns [1, 3, 5].'},
 				'Loop.MappingKey':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':32}, 'Example':'%%', 'Help':'String to be used as prefix and sufix for the replace values.'},
 				'Loop.Mapping':{'Type':{'Type':'Dict'}, 'Example':{"COL.1":"$DATA.LIST=1$", "RowID":"$LOOP.ROW$"}, 'Help':"""Allows the steps to be updated with values from the input data. Keywords allowed:
-$LOOP.ROW$ - For Data.ListList, the value of the current data row, starts at 0. For Data.DictList, the key
-$LOOP.ROW+1$ - For Data.ListList, the value of the current data row, starts at 1
-$DATA.ROW$ - Takes the entire entry
-$DATA.LIST=0$ - Takes the value from the first column in the Data.ListList or Data.DictList input is used
-$DATA.DICT=ID$ - Takes the value from the dict entry with the key ID if the Data.ListDict or Data.DictDict input is used
-				"""},
+$LOOP.ROW$ - For Data.ListList, the value of the current data row, starts at 0. For Data.DictList, the key.
+$LOOP.ROW+1$ - For Data.ListList, the value of the current data row, starts at 1.
+$DATA.ROW$ - Takes the entire entry.
+$DATA.LIST=0$ - Takes the value from the first column in the Data.ListList or Data.DictList input is used.
+$DATA.DICT=ID$ - Takes the value from the dict entry with the key ID if the Data.ListDict or Data.DictDict input is used."""},
 				'Steps':{'Type':{'Type':'List'}, 'Steps':True, 'Mandatory':'*', 'Help':'Steps to be executed. The keys from Loop.Mapping will be replaced by the corresponding value.\nBased on Loop.MappingKey and Loop.Mapping, a step with the value "Button%%RowID%%" would be replaced with "Button0" for the first line in the data, "Button1" for the second and so on.'},
 				'Debug.Console':{'Type':{'Type':'Boolean'}, 'Example':True, 'Help':'If True, displays debug steps in console.'},
 			},
@@ -1685,7 +1693,7 @@ $DATA.DICT=ID$ - Takes the value from the dict entry with the key ID if the Data
 			},
 		},
 		'SCRIPTING:Excel.Read':{
-			'Version':2,
+			'Version':3,
 			'Title':'Read data from an open Excel workbook sheet',
 			'Description':'',
 			'Input':{
@@ -1701,17 +1709,68 @@ $DATA.DICT=ID$ - Takes the value from the dict entry with the key ID if the Data
 			},
 		},
 		'SCRIPTING:Excel.Write':{
-			'Version':1,
+			'Version':2,
 			'Title':'Write data to an open Excel workbook sheet',
 			'Description':'',
 			'Input':{
 				'Workbook':{'Type':{'Type':'String'}, 'Example':'Manuals.xlsx', 'Help':'Specifies a specific workbook.'},
 				'Sheet':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':64}, 'Example':'Sheet1', 'Help':'Specifies a specific sheet.'},
 				'Cell':{'Type':{'Type':'String', 'LengthMin':2, 'LengthMax':9}, 'Example':'B5', 'Help':'Specifies which cell that should be changed.'},
+				'Cell.RowOffset':{'Type':{'Type':'Integer'}, 'Example':1, 'Help':'Control rows + or - to adjust the updated cell, so with -1 the cell A4 becomes A3.'},
 				'Cell.Value':{'Type':{'Type':'Any'}, 'Example':0.67, 'Help':'The value to be written to the cell'},
-				'Cell.Color':{'Type':{'Type':'String'}, 'Example':'#901234', 'Help':'Specifies the RGB font color of a cell'},
-				'Cell.Background':{'Type':{'Type':'String'}, 'Example':'#123456', 'Help':'Specifies the RGB background color of a cell'},
+				'Cell.Color':{'Type':{'Type':['String', 'Integer', None]}, 'Example':'#901234', 'Help':'Specifies the RGB font color of a cell, None clears the color.'},
+				'Cell.Color.HSV':{},
+				'Cell.Background':{'Type':{'Type':['String', 'Integer', None]}, 'Example':'#123456', 'Help':'Specifies the RGB background color of a cell, None clears the background.'},
+				'Cell.Background.HSV':{},
 				'Refresh':{'Type':{'Type':'Boolean'}, 'Example':True, 'Help':'If True, refreshes the list of open Excel workbooks and sheets.'},
+			},
+		},
+		'SCRIPTING:Outlook.Mail.Create':{
+			'Version':1,
+			'Title':'Creates an Outlook mail',
+			'Description':'',
+			'Input':{
+				'ID':{'Type':{'Type':'String'}, 'Example':'Mail#1', 'Help':'The ID for the created mail.'},
+				'To':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'first.lastname@domain.com', 'Help':'The To address for the mail.'},
+				'CC':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'first.lastname@domain.com', 'Help':'The CC address for the mail.'},
+				'BCC':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'first.lastname@domain.com', 'Help':'The BCC address for the mail.'},
+				'Subject':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':512}, 'Example':'Daily statistics', 'Help':'The Subject of the mail.'},
+				'Body':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':65000}, 'Example':'Here are the dailty statistics...', 'Help':'The Body of the mail.'},
+				'Importance':{'Type':{'Type':'Integer', 'Min':0, 'Max':2}, 'Example':2, 'Help':'Sets the importance of the e-mail (0 = Low, 1 = Normal, 2 = High).'},
+				'Attachment':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'C:\\TEMP\\Test.CSV', 'Help':'A file to be attached to the mail.'},
+			},
+		},
+		'SCRIPTING:Outlook.Mail.Display':{
+			'Version':1,
+			'Title':'Displays the created mail',
+			'Description':'',
+			'Input':{
+				'ID':{'Type':{'Type':'String'}, 'Example':'Mail#1', 'Help':'The ID for the created mail.'},
+				'Body.IgnoreDefault':{'Type':{'Type':'Boolean'}, 'Example':True, 'Help':'If True, the default message will be removed.'},
+			},
+		},
+		'SCRIPTING:Outlook.Mail.Change':{
+			'Version':1,
+			'Title':'Change a created mail',
+			'Description':'',
+			'Input':{
+				'ID':{'Type':{'Type':'String'}, 'Example':'Mail#1', 'Help':'The ID for the created mail.'},
+				'To':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'first.lastname@domain.com', 'Help':'The To address for the mail.'},
+				'CC':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'first.lastname@domain.com', 'Help':'The CC address for the mail.'},
+				'BCC':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'first.lastname@domain.com', 'Help':'The BCC address for the mail.'},
+				'Subject':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':512}, 'Example':'Daily statistics', 'Help':'The Subject of the mail.'},
+				'Body':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':65000}, 'Example':'Here are the dailty statistics...', 'Help':'The Body of the mail.'},
+				'Body.KeepDefault':{'Type':{'Type':'Boolean'}, 'Example':True, 'Help':'If True, appends the default message to the end of the mail.'},
+				'Importance':{'Type':{'Type':'Integer', 'Min':0, 'Max':2}, 'Example':2, 'Help':'Sets the importance of the e-mail (0 = Low, 1 = Normal, 2 = High).'},
+				'Attachment':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'C:\\TEMP\\Test.CSV', 'Help':'A file to be attached to the mail.'},
+			},
+		},
+		'SCRIPTING:Outlook.Mail.Close':{
+			'Version':1,
+			'Title':'Closes a mail',
+			'Description':'',
+			'Input':{
+				'ID':{'Type':{'Type':'String'}, 'Example':'Mail#1', 'Help':'The ID for the created mail.'},
 			},
 		},
 		'SCRIPTING:SAP.Session.Open':{
@@ -1778,13 +1837,13 @@ $DATA.DICT=ID$ - Takes the value from the dict entry with the key ID if the Data
 			},
 		},
 		'SCRIPTING:SAP.Send.Text':{
-			'Version':1,
+			'Version':2,
 			'Title':'Sends a text to a SAP field',
 			'Description':'',
 			'Input':{
 				'Object.SAP':{'Type':{'Type':'String'}, 'Example':'SAP_EWM', 'Help':'Specifies if a specific SAP connection should be used and not the general one from the isolation key.'},
 				'Field':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'wnd[0]/tbar[0]/okcd', 'Help':'Specifies which SAP field that should be used'},
-				'Text':{'Type':{'Type':'String'}},
+				'Text':{'Type':{'Type':['String', 'Numeric'], 'Help':'Updates the field with the text value, if the value is numeric, converts it to a string first.'}},
 			},
 		},
 		'SCRIPTING:SAP.Send.Key':{
@@ -1910,6 +1969,22 @@ $DATA.DICT=ID$ - Takes the value from the dict entry with the key ID if the Data
 				'Object.SAP':{'Type':{'Type':'String'}, 'Example':'SAP_EWM', 'Help':'Specifies if a specific SAP connection should be used and not the general one from the isolation key.'},
 				'Field':{'Type':{'Type':'String', 'LengthMin':4, 'LengthMax':512}, 'Example':'wnd[0]/shellcont/shell/shellcont[1]/shell[1]', 'Help':'Specifies which SAP field that should be used'},
 				'Node':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'          4', 'Help':'Specifies which value should be set for the SAP node.'},
+			},
+		},
+		'SCRIPTING:SAP.Search.Node':{
+			'Version':1,
+			'Title':'Acquire a SAP session',
+			'Description':'',
+			'Input':{
+				'Object.SAP':{'Type':{'Type':'String'}, 'Example':'SAP_EWM', 'Help':'Specifies if a specific SAP connection should be used and not the general one from the isolation key.'},
+				'Node':{},
+				'Nodes':{},
+				'Search.Field':{},
+				'Search.Value':{},
+				'ReturnVariable':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'TEMP_VALUE', 'Help':'Stores the result in the provided variable, if running is an isolated state, will keep the variable isolated.'},
+				'ReturnVariable.Global':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'TEMP_VALUE', 'Help':'Stores the result in the provided variable, if running is an isolated state, will keep the data in the global variable instead of the isolated one.'},
+				'ReturnVariable.Found':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'TEMP_VALUE', 'Help':'Stores the result in the provided variable, if running is an isolated state, will keep the variable isolated.'},
+				'ReturnVariable.Found.Global':{'Type':{'Type':'String', 'LengthMin':1, 'LengthMax':128}, 'Example':'TEMP_VALUE', 'Help':'Stores the result in the provided variable, if running is an isolated state, will keep the data in the global variable instead of the isolated one.'},
 			},
 		},
 		'SCRIPTING:SAP.Check.Text':{
@@ -2137,6 +2212,5 @@ $DATA.DICT=ID$ - Takes the value from the dict entry with the key ID if the Data
 	def __init__ (self) -> None:
 		self.fernet_key = ''
 		self.tds_fernet_key = ''
-	
 	
 	

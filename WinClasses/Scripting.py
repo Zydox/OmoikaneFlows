@@ -6,8 +6,8 @@ import builtins
 from Functions.Common import *
 from Functions.DataHandling import *
 for name in dir ():
-    if not name.startswith ("_"):
-        builtins.__dict__[name] = globals ()[name]
+	if not name.startswith ("_"):
+		builtins.__dict__[name] = globals ()[name]
 import pythoncom
 builtins.pythoncom = pythoncom
 import pywintypes
@@ -26,6 +26,11 @@ import time
 builtins.time = time
 import datetime
 builtins.datetime = datetime
+import re
+builtins.re = re
+import colorsys
+builtins.colorsys = colorsys
+
 
 class Scripting:
 	def __init__ (self, cls_steps = None):
@@ -33,6 +38,7 @@ class Scripting:
 			'SAP':{},
 			'Excel':{},
 			'Lock':{},
+			'Outlook':{},
 		}
 		self.cls_steps = cls_steps
 	
@@ -92,6 +98,8 @@ class Scripting:
 				return self.step_sap_send_selectednode (running_steps, isolation, **opts)
 			elif opts['Function'] == 'SCRIPTING:SAP.Capture':
 				return self.step_sap_capture (running_steps, isolation, **opts)
+			elif opts['Function'] == 'SCRIPTING:SAP.Search.Node':
+				return self.step_sap_search_node (running_steps, isolation, **opts)
 			elif opts['Function'] == 'SCRIPTING:SAP.LabelList.Search':
 				return self.step_sap_labellist_search (running_steps, isolation, **opts)
 			elif opts['Function'] == 'SCRIPTING:SAP.Screen.Capture':
@@ -104,6 +112,14 @@ class Scripting:
 				return self.step_excel_read (running_steps, isolation, **opts)
 			elif opts['Function'] == 'SCRIPTING:Excel.Write':
 				return self.step_excel_write (running_steps, isolation, **opts)
+			elif opts['Function'] == 'SCRIPTING:Outlook.Mail.Create':
+				return self.step_outlook_mail_create (running_steps, isolation, **opts)
+			elif opts['Function'] == 'SCRIPTING:Outlook.Mail.Display':
+				return self.step_outlook_mail_display (running_steps, isolation, **opts)
+			elif opts['Function'] == 'SCRIPTING:Outlook.Mail.Change':
+				return self.step_outlook_mail_change (running_steps, isolation, **opts)
+			elif opts['Function'] == 'SCRIPTING:Outlook.Mail.Close':
+				return self.step_outlook_mail_close (running_steps, isolation, **opts)
 		except Exception as e:
 			st = internal_zyd_stacktrace (e, FunctionOpts=opts)
 			return False, {'Status':'CRASH', 'Title':'SCRIPTING:execute: Crashed', 'Message':'Crashed with the error: ' + str (e) + ' for step:\n' + str (opts), 'StackTrace':st}
@@ -117,14 +133,17 @@ class Scripting:
 		result = (self.internal_excel_refresh (Refresh=True) if 'Refresh' in opts and opts['Refresh'] is True else self.internal_excel_refresh ())
 		if result is not True:
 			return False, result
-		if opts['Workbook'] not in self.objects['Excel']['Index']:
+		if opts['Workbook'] not in self.objects['Excel']['Workbooks']:
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_write: Aborted', 'Message':'Workbook "' + str (opts['Workbook']) + '" not found.'}
-		if opts['Workbook'] + ':' + opts['Sheet'] not in self.objects['Excel']['Index']:
+		if opts['Sheet'] not in self.objects['Excel']['Workbooks'][opts['Workbook']]['Sheets']:
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_write: Aborted', 'Message':'Workbook "' + str (opts['Workbook']) + '" does not contain the sheet "' + str (opts['Sheet']) + '".'}
-		sheet_object = self.objects['Excel']['Application'].Workbooks (self.objects['Excel']['Index'][opts['Workbook']]).Worksheets (self.objects['Excel']['Index'][opts['Workbook'] + ':' + opts['Sheet']])
-		
 		if 'Cell' in opts and isinstance (opts['Cell'], str):
-			self.internal_excel_write_cell (sheet_object.Range (opts['Cell']), **opts)
+			cell = copy.deepcopy (opts['Cell'])
+			if 'Cell.RowOffset' in opts and isinstance (opts['Cell.RowOffset'], int):
+				search = re.findall ('^([A-Z]+)([0-9]+)$', cell)
+				if len (cell) >= 2 and len (search) == 1 and len (search[0]) == 2 and ''.join (search[0]) == cell:
+					cell = search[0][0] + str (int (search[0][1]) + opts['Cell.RowOffset'])
+			self.internal_excel_write_cell (opts['Workbook'], opts['Sheet'], cell, **opts)
 		else:
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_write: Aborted', 'Message':'No valid update input was provided.'}
 
@@ -137,11 +156,11 @@ class Scripting:
 		result = (self.internal_excel_refresh (Refresh=True) if 'Refresh' in opts and opts['Refresh'] is True else self.internal_excel_refresh ())
 		if result is not True:
 			return False, result
-		if opts['Workbook'] not in self.objects['Excel']['Index']:
+		if opts['Workbook'] not in self.objects['Excel']['Workbooks']:
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_read: Aborted', 'Message':'Workbook "' + str (opts['Workbook']) + '" not found.'}
-		if opts['Workbook'] + ':' + opts['Sheet'] not in self.objects['Excel']['Index']:
+		if opts['Sheet'] not in self.objects['Excel']['Workbooks'][opts['Workbook']]['Sheets']:
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_read: Aborted', 'Message':'Workbook "' + str (opts['Workbook']) + '" does not contain the sheet "' + str (opts['Sheet']) + '".'}
-		sheet_object = self.objects['Excel']['Application'].Workbooks (self.objects['Excel']['Index'][opts['Workbook']]).Worksheets (self.objects['Excel']['Index'][opts['Workbook'] + ':' + opts['Sheet']])
+		sheet_object = self.objects['Excel']['Application'].Workbooks (opts['Workbook']).Worksheets (opts['Sheet'])
 		
 		if 'Complete' in opts and opts['Complete'] is True:
 			data = []
@@ -153,6 +172,7 @@ class Scripting:
 					data.append (row)
 		elif 'Row' in opts and isinstance (opts['Row'], int):
 			if opts['Row'] < 1 or opts['Row'] > sheet_object.Rows.Count:
+				sheet_object = None
 				return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_read: Aborted', 'Message':'The row "' + str (opts['Row']) + '" is not active in the Excel sheet.'}
 			data = []
 			irow = opts['Row'] - sheet_object.UsedRange.Row + 1
@@ -162,8 +182,10 @@ class Scripting:
 		elif 'Cell' in opts:
 			data = self.internal_excel_read_cell (sheet_object.Range (opts['Cell']), **opts)
 		else:
+			sheet_object = None
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_read: Aborted', 'Message':'No valid selection input was provided.'}
-			
+		sheet_object = None
+		
 		if 'ReturnVariable' in opts and isinstance (opts['ReturnVariable'], str):
 			self.cls_steps.internal_value_set_value (isolation, 'Variable', data, opts['ReturnVariable'])
 		if 'ReturnVariable.Global' in opts and isinstance (opts['ReturnVariable.Global'], str):
@@ -182,12 +204,11 @@ class Scripting:
 			for iworkbook in self.objects['Excel']['Workbooks'].keys ():
 				data.append (self.objects['Excel']['Workbooks'][iworkbook]['Name'])
 		elif 'Workbook' in opts and 'Sheets' in opts and opts['Sheets'] is True:
-			if opts['Workbook'] not in self.objects['Excel']['Index']:
+			if opts['Workbook'] not in self.objects['Excel']['Workbooks']:
 				return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_open_list: Aborted', 'Message':'Workbook "' + str (opts['Workbook']) + '" not found.'}
 			data = []
-			iworkbook = self.objects['Excel']['Index'][opts['Workbook']]
-			for isheet in self.objects['Excel']['Workbooks'][iworkbook]['Sheets'].keys ():
-				data.append (self.objects['Excel']['Workbooks'][iworkbook]['Sheets'][isheet]['Name'])
+			for isheet in self.objects['Excel']['Workbooks'][opts['Workbook']]['Sheets'].keys ():
+				data.append (self.objects['Excel']['Workbooks'][opts['Workbook']]['Sheets'][isheet]['Name'])
 		else:
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_excel_open_list: Aborted', 'Message':'No valid selection logic was provided.'}
 		
@@ -204,41 +225,54 @@ class Scripting:
 		return cell_object.Text
 	
 	
-	def internal_excel_write_cell (self, cell_object, **opts):
+	def internal_excel_write_cell (self, workbook, sheet, cellrange, **opts):
+		cell_object = self.objects['Excel']['Application'].Workbooks (workbook).Worksheets (sheet).Range (cellrange)
 		if 'Cell.Value' in opts:
 			cell_object.Value = opts['Cell.Value']
 		if 'Cell.Background' in opts:
 			if isinstance (opts['Cell.Background'], str) and len (opts['Cell.Background']) == 7 and opts['Cell.Background'][0] == '#':
 				cell_object.Interior.Color = int (opts['Cell.Background'][5:7], 16) + int (opts['Cell.Background'][3:5], 16) * 256 + int (opts['Cell.Background'][1:3], 16) * 65536
+			elif isinstance (opts['Cell.Background'], int) and opts['Cell.Background'] >= 0 and opts['Cell.Background'] <= 16777216:
+				if 'Cell.Background.HSV' in opts and opts['Cell.Background.HSV'] is True:
+					r, g, b = colorsys.hsv_to_rgb ((opts['Cell.Background'] / 16777216), 1.0, 1.0)
+					c = (int(r*255) << 16) | (int(g*255) << 8) | int(b*255)
+#					print ('')
+#					print (str (opts['Cell.Background']) + '=>' + str (c))
+					cell_object.Interior.Color = c
+				else:
+					cell_object.Interior.Color = opts['Cell.Background']
+			elif opts['Cell.Background'] is None:
+				cell_object.Interior.ColorIndex = -4142
 		if 'Cell.Color' in opts:
 			if isinstance (opts['Cell.Color'], str) and len (opts['Cell.Color']) == 7 and opts['Cell.Color'][0] == '#':
 				cell_object.Font.Color = int (opts['Cell.Color'][5:7], 16) + int (opts['Cell.Color'][3:5], 16) * 256 + int (opts['Cell.Color'][1:3], 16) * 65536
+			elif opts['Cell.Color'] is None:
+				cell_object.Font.ColorIndex = -4142
+				cell_object.Font.Bold = False
+				cell_object.Font.Italic = False
 	
 	
 	def internal_excel_refresh (self, **opts):
 		if 'Refresh' in opts and opts['Refresh'] is True and 'Application' in self.objects['Excel']:
-			self.objects['Excel']['Application'].Application.Quit ()
-			self.objects['Excel']['Application'].Quit ()
 			self.objects['Excel']['Application'] = None
 			self.objects['Excel'] = {}
 		
 		if 'Application' not in self.objects['Excel']:
 			self.objects['Excel'] = {
-				'Application':win32com.client.dynamic.Dispatch ("Excel.Application"),
+				'Application':win32com.client.GetActiveObject ("Excel.Application"),
 				'Workbooks':{},
-				'Index':{},
 			}
 			for iworkbook in range (1, self.objects['Excel']['Application'].Workbooks.Count + 1):
-				self.objects['Excel']['Workbooks'][iworkbook] = {
-					'Name':self.objects['Excel']['Application'].Workbooks.Item (iworkbook).Name,
+				wb_name = self.objects['Excel']['Application'].Workbooks.Item (iworkbook).Name
+				self.objects['Excel']['Workbooks'][wb_name] = {
+					'Name':wb_name,
 					'Sheets':{},
 				}
-				self.objects['Excel']['Index'][self.objects['Excel']['Application'].Workbooks.Item (iworkbook).Name] = iworkbook
 				for isheet in range (1, len (self.objects['Excel']['Application'].Workbooks (iworkbook).Worksheets) + 1):
-					self.objects['Excel']['Workbooks'][iworkbook]['Sheets'][isheet] = {
-						'Name':self.objects['Excel']['Application'].Workbooks (iworkbook).Worksheets (isheet).Name
+					sheet_name = self.objects['Excel']['Application'].Workbooks (iworkbook).Worksheets (isheet).Name
+					self.objects['Excel']['Workbooks'][wb_name]['Sheets'][sheet_name] = {
+						'Name':sheet_name,
 					}
-					self.objects['Excel']['Index'][self.objects['Excel']['Application'].Workbooks.Item (iworkbook).Name + ':' + self.objects['Excel']['Application'].Workbooks (iworkbook).Worksheets (isheet).Name] = isheet
 		return True
 	
 	
@@ -444,9 +478,11 @@ class Scripting:
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_send_text: Aborted', 'Message':'No Field was provided for the function.'}
 		if 'Text' not in opts:
 			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_send_text: Aborted', 'Message':'No Text was provided for the function.'}
+		if not isinstance (opts['Text'], (str, int, float)):
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_send_text: Aborted', 'Message':'The "Text" field was not a string or number.'}
 		key = (isolation['Object.SAP'] if isinstance (isolation, dict) and 'Object.SAP' in isolation else str (isolation))
 		self.internal_sap_object_processing (key, True)
-		self.objects['SAP'][key]['Window'].findById (opts['Field']).text = opts['Text']
+		self.objects['SAP'][key]['Window'].findById (opts['Field']).text = str (opts['Text'])
 		self.internal_sap_object_processing (key, False)
 		return True, {'Status':'OK'}
 	
@@ -688,6 +724,55 @@ class Scripting:
 			return False, False
 	
 	
+	def step_sap_search_node (self, running_steps, isolation, **opts):
+		key = (isolation['Object.SAP'] if isinstance (isolation, dict) and 'Object.SAP' in isolation else str (isolation))
+		self.internal_sap_object_processing (key, True)
+		if 'Node' not in opts:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'No valid "Node" to search was provided.'}
+		elif not isinstance (opts['Node'], str):
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'"Node" needs to contain a string.'}
+		if 'Nodes' not in opts:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'No valid "Nodes" to search was provided.'}
+		elif not isinstance (opts['Nodes'], list):
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'"Nodes" needs to contain a list of nodes to search.'}
+		if 'Search.Field' not in opts:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'No valid "Search.Field" to search was provided.'}
+		elif not isinstance (opts['Search.Field'], str):
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'"Search.Field" needs to contain a string.'}
+		if 'Search.Value' not in opts:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'No valid "Search.Value" to match was provided.'}
+		elif not isinstance (opts['Search.Value'], str):
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'"Search.Value" needs to contain a string.'}
+		try:
+			node_object = self.objects['SAP'][key]['Window'].findById (opts['Node'])
+		except Exception as e:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_sap_search_node: Aborted', 'Message':'The node "' + str (opts['Node']) + '" was not found.'}
+
+		for node in opts['Nodes']:
+			try:
+				node_object.selectedNode = node
+				field = self.objects['SAP'][key]['Window'].findById (opts['Search.Field'])
+				if field.Text == opts['Search.Value']:
+					self.internal_sap_object_processing (key, False)
+					if 'ReturnVariable' in opts and isinstance (opts['ReturnVariable'], str):
+						self.cls_steps.internal_value_set_value (isolation, 'Variable', node, opts['ReturnVariable'])
+					if 'ReturnVariable.Global' in opts and isinstance (opts['ReturnVariable.Global'], str):
+						self.cls_steps.internal_value_set_value (None, 'Variable', node, opts['ReturnVariable.Global'])
+					if 'ReturnVariable.Found' in opts and isinstance (opts['ReturnVariable.Found'], str):
+						self.cls_steps.internal_value_set_value (isolation, 'Variable', True, opts['ReturnVariable.Found'])
+					if 'ReturnVariable.Found.Global' in opts and isinstance (opts['ReturnVariable.Found.Global'], str):
+						self.cls_steps.internal_value_set_value (None, 'Variable', True, opts['ReturnVariable.Found.Global'])
+					return True, {'Status':'OK', 'Data':node}
+			except Exception as e:
+				continue
+		self.internal_sap_object_processing (key, False)
+		if 'ReturnVariable.Found' in opts and isinstance (opts['ReturnVariable.Found'], str):
+			self.cls_steps.internal_value_set_value (isolation, 'Variable', False, opts['ReturnVariable.Found'])
+		if 'ReturnVariable.Found.Global' in opts and isinstance (opts['ReturnVariable.Found.Global'], str):
+			self.cls_steps.internal_value_set_value (None, 'Variable', False, opts['ReturnVariable.Found.Global'])
+		return True, {'Status':'OK', 'Message':'Node not found.'}
+	
+	
 	def step_sap_screen_capture (self, running_steps, isolation, **opts):
 		key = (isolation['Object.SAP'] if isinstance (isolation, dict) and 'Object.SAP' in isolation else str (isolation))
 		if 'Window' in opts:
@@ -733,8 +818,119 @@ class Scripting:
 			return True, {'Status':'OK', 'Data':files}
 		else:
 			return True, {'Status':'OK'}
-			
 	
+	
+	def step_outlook_mail_create (self, running_steps, isolation, **opts):
+		if 'ID' not in opts:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_create: Aborted', 'Message':'No mail ID was provided.'}
+
+		self.internal_outlook_init ()
+		if opts['ID'] in self.objects['Outlook']['Mails']:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_create: Aborted', 'Message':'The mail ID "' + str (opts['ID']) + '" already exists.'}
+		self.objects['Outlook']['Mails'][opts['ID']] = {
+			'Object':self.objects['Outlook']['Application'].CreateItem (0),
+			'Displayed':False,
+			'Default':'',
+		}
+		status, changes = self.internal_outlook_mail_edit (opts['ID'], **opts)
+		return True, {'Status':'OK', 'Message':'Outlook mail created: ' + ', '.join (changes)}
+	
+
+	def step_outlook_mail_display (self, running_steps, isolation, **opts):
+		if 'ID' not in opts:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_display: Aborted', 'Message':'No mail ID was provided.'}
+		if opts['ID'] not in self.objects['Outlook']['Mails']:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_display: Aborted', 'Message':'The mail ID "' + str (opts['ID']) + '" doesn\'t exist.'}
+		if self.objects['Outlook']['Mails'][opts['ID']]['Displayed'] is True:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_display: Aborted', 'Message':'The mail ID "' + str (opts['ID']) + '" has already been displayed.'}
+
+		self.objects['Outlook']['Mails'][opts['ID']]['Object'].Display ()
+		self.objects['Outlook']['Mails'][opts['ID']]['Default'] = self.objects['Outlook']['Mails'][opts['ID']]['Object'].HTMLBody
+		if 'Body' in self.objects['Outlook']['Mails'][opts['ID']] and len (self.objects['Outlook']['Mails'][opts['ID']]['Body']) > 0:
+			self.objects['Outlook']['Mails'][opts['ID']]['Object'].HTMLBody = self.objects['Outlook']['Mails'][opts['ID']]['Body'] + (self.objects['Outlook']['Mails'][opts['ID']]['Default'] if 'Body.IgnoreDefault' not in opts or opts['Body.IgnoreDefault'] is not True else '')
+		elif 'Body.IgnoreDefault' in opts and opts['Body.IgnoreDefault'] is True:
+			self.objects['Outlook']['Mails'][opts['ID']]['Object'].HTMLBody = ''
+		self.objects['Outlook']['Mails'][opts['ID']]['Displayed'] = True
+		return True, {'Status':'OK', 'Message':'Outlook mail displayed.'}
+	
+
+	def step_outlook_mail_change (self, running_steps, isolation, **opts):
+		if 'ID' not in opts:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_change: Aborted', 'Message':'No mail ID was provided.'}
+		if opts['ID'] not in self.objects['Outlook']['Mails']:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_change: Aborted', 'Message':'The mail ID "' + str (opts['ID']) + '" doesn\'t exist.'}
+		status, changes = self.internal_outlook_mail_edit (opts['ID'], **opts)
+		if status is not True:
+			return False, {'Status':'WARNING', 'Message':'Outlook failed to change with the following error(s): ' + ', '.join (changes)}
+		return True, {'Status':'OK', 'Message':'Outlook mail changed: ' + ', '.join (changes)}
+
+	
+	def step_outlook_mail_close (self, running_steps, isolation, **opts):
+		if 'ID' not in opts:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_close: Aborted', 'Message':'No mail ID was provided.'}
+		if opts['ID'] not in self.objects['Outlook']['Mails']:
+			return False, {'Status':'WARNING', 'Title':'SCRIPTING:step_outlook_mail_close: Aborted', 'Message':'The mail ID "' + str (opts['ID']) + '" doesn\'t exist.'}
+		self.objects['Outlook']['Mails'][opts['ID']]['Object'].Close (0)
+		del (self.objects['Outlook']['Mails'][opts['ID']])
+		return True, {'Status':'OK', 'Message':'Outlook mail closed.'}
+
+
+	def internal_outlook_init (self):
+		if 'Application' not in self.objects['Outlook']:
+			self.objects['Outlook'] = {
+				'Application':win32com.client.Dispatch ("Outlook.Application"),
+				'Mails':{},
+			}
+
+
+	def internal_outlook_mail_edit (self, id, **opts):
+		status = True
+		changes = []
+		if 'To' in opts:
+			self.objects['Outlook']['Mails'][id]['Object'].To = opts['To']
+			changes.append ('To=' + (opts['To'][:20] + '...' if len (opts['To']) > 20 else opts['To']))
+		if 'CC' in opts:
+			self.objects['Outlook']['Mails'][id]['Object'].CC = opts['CC']
+			changes.append ('CC=' + (opts['CC'][:20] + '...' if len (opts['CC']) > 20 else opts['CC']))
+		if 'BCC' in opts:
+			self.objects['Outlook']['Mails'][id]['Object'].BCC = opts['BCC']
+			changes.append ('BCC=' + (opts['BCC'][:20] + '...' if len (opts['BCC']) > 20 else opts['BCC']))
+		if 'Subject' in opts:
+			if isinstance (opts['Subject'], str):
+				self.objects['Outlook']['Mails'][id]['Object'].Subject = opts['Subject']
+				changes.append ('Subject=' + (opts['Subject'][:20] + '...' if len (opts['Subject']) > 20 else opts['Subject']))
+			else:
+				status = False
+				changes = ['The subject "' + str (opts['Subject']) + '" was not valid.']
+		if 'Body' in opts:
+			if isinstance (opts['Body'], str):
+				if self.objects['Outlook']['Mails'][id]['Displayed'] is False:
+					self.objects['Outlook']['Mails'][id]['Body'] = opts['Body']
+				elif 'Body.KeepDefault' in opts and opts['Body.KeepDefault'] is True:
+					self.objects['Outlook']['Mails'][id]['Object'].HTMLBody = opts['Body'] + self.objects['Outlook']['Mails'][id]['Default']
+				else:
+					self.objects['Outlook']['Mails'][id]['Object'].HTMLBody = opts['Body']
+				changes.append ('Body=' + (opts['Body'][:20] + '...' if len (opts['Body']) > 20 else opts['Body']))
+			else:
+				status = False
+				changes = ['The body "' + str (opts['Body']) + '" was not valid.']
+		if 'Importance' in opts:
+			if isinstance (opts['Importance'], int) and opts['Importance'] >= 0 and opts['Importance'] <= 2:
+				self.objects['Outlook']['Mails'][id]['Object'].Importance = opts['Importance']
+				changes.append ('Importance=' + str (opts['Importance']))
+			else:
+				status = False
+				changes = ['The importance "' + str (opts['Importance']) + '" was not valid.']
+		if 'Attachment' in opts:
+			if isinstance (opts['Attachment'], str) and os.path.exist (opts['Attachment']) is True:
+				self.objects['Outlook']['Mails'][id]['Object'].Attachments.Add = opts['Attachment']
+				changes.append ('Attachment=' + (opts['Attachment'][:20] + '...' if len (opts['Attachment']) > 20 else opts['Attachment']))
+			else:
+				status = False
+				changes = ['The attachment "' + str (opts['Attachment']) + '" was not valid.']
+		return status, changes
+
+
 	def internal_step_sap_check_text (self, isolation, **opts):
 		key = (isolation['Object.SAP'] if isinstance (isolation, dict) and 'Object.SAP' in isolation else str (isolation))
 		debug_console = (True if 'Debug.Console' in opts and opts['Debug.Console'] is True else False)
